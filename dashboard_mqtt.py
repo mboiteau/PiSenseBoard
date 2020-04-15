@@ -1,15 +1,11 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import threading
 import psutil
-import threading
 import time
 import os
+import json
 from sense_hat import SenseHat
-from gpiozero import LED
 from gpiozero import CPUTemperature
 
 sense = SenseHat()
@@ -17,15 +13,36 @@ refresh_rate = 5
 
 def on_connect(mqttc, obj, flags, rc):
     print("Connected with result code "+str(rc))
-    mqttc.subscribe("/pi/led")
+    mqttc.subscribe("/raspberry/led/#")
+
+def rgb_parsing(rgb_result):
+    parsed = (rgb_result.replace(" ", "")).split(',')
+    rgb_array = []
+    for i in parsed:
+        s = ''.join([c for c in i if c.isdigit()])
+        rgb_array.append(int(s))
+    return rgb_array
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
         print(msg.topic+" "+str(msg.payload))
-#        if msg.payload == "on":
-#            green_led.on()
-#        if msg.payload == "off":
-#            green_led.off()
+        if msg.topic == "/raspberry/led/luminosity":
+            if msg.payload == "1":
+                print("low light off")
+                sense.low_light = False
+            if msg.payload == "0":
+                print("low light on")
+                sense.low_light = True
+        if msg.topic == "/raspberry/led/state":
+            if msg.payload == "True":
+                print("led state on")
+                sense.clear(255,255,255)
+            if msg.payload == "False":
+                print("led state off")
+                sense.clear()
+        if msg.topic == "/raspberry/led/color":
+            rgb_array = rgb_parsing(msg.payload)
+            sense.clear(rgb_array[0], rgb_array[1], rgb_array[2])
 
 def on_publish(mqttc, obj, mid):
     print("mid: " + str(mid))
